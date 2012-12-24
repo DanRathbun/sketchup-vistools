@@ -1,0 +1,27 @@
+Adds some useful visibility tools within SketchUp like Hide / Show entities and layers, Freeze / Unfreeze and Show / Unfreeze all.
+
+Portuguese
+
+Vis Tools
+Vision Tools
+Visibility Tools
+
+Hide Layers
+Isolate Layers
+Hide Entities
+Isolate Entities
+Freeze Components
+Unfreeze All
+Show All
+All
+Everything
+
+Debug Mode
+
+Hide selected layers
+Isolate selected layers
+Hide selected entities
+Isolate selected entities
+Freeze groups and components
+Unfreeze all
+Show all layers and entities
