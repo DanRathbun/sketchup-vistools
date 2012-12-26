@@ -17,10 +17,21 @@
 #-----------------------------------------------------------------------------
 # VERSIONS:
 #
-#   1.0.1 : 2012-10-03 : Dana Woodman (Ishboo)
+#   1.0.1 : 2012-10-03 : Dana Woodman (ishboo)
 #   * Note: Documentation Heading in extension registration script says v1.1
 #
 #   1.2.0 : 2012-12-22 : Daniel A. Rathbun, Palm Bay, FL, USA
+#         + multi-language support
+#         + multi-model support
+#
+#   1.2.1 : 2012-12-25 : Daniel A. Rathbun, Palm Bay, FL, USA
+#         + Dutch & Czech language support.
+#         ~ Revised lang file load error notice.
+#         ~ Gray-out commands that rely upon selection, when it is empty.
+#         + Add UI disable during undo operations for SketchUp versions 7+.
+#         ~ Prevent unnecessary undo operations when nothing to be done.
+#         ~ Fixed: Undo operation names were not localized.
+#         ~ Fixed: unfreeze_all() and show_all() method descriptions.
 #
 #-----------------------------------------------------------------------------
 
@@ -39,16 +50,25 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
       @@toolbar = nil unless defined?(@@toolbar)
       @@submenu = nil unless defined?(@@submenu)
       @@command = {}  unless defined?(@@command)
-      # load localized string hashes from file:
+      
+      @@select_proc = Proc.new {
+        Sketchup.active_model.selection.empty? ? MF_GRAYED : MF_ENABLED
+      }
+
+      #{ Load localized string hashes from file:
+      @@lang = Sketchup.get_locale()[0,2] unless defined?(@@lang)
       begin
-        if Sketchup.get_locale()[0,2]=='en'
+        if @@lang == 'en'
           raise(LoadError,"English")
         else
-          load(File.join(BASEPATH,"VisTools_"<<Sketchup.get_locale()[0,2]<<".rb"))
+          load(File.join(BASEPATH,"VisTools_"<<@@lang<<".rb"))
         end
       rescue LoadError => e
-        unless e.message=='English'
-          puts('Could not find a "VisTools_'<<Sketchup.get_locale()[0,2]<<'.rb" file to load.\nUsing English text for plugin UI.')
+        if e.message != 'English' && !$VERBOSE.nil?
+          puts()
+          puts('NOTICE: Could not find a "VisTools_'<<@@lang<<'.rb" file to load.')
+          puts('Using English text for VisTools plugin UI.')
+          puts()
         end
         @@menutext = Hash[
           :plugin_name,      "VisTools",
@@ -57,7 +77,7 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
           :isolate_layers,   "Isolate Layers",
           :hide_entities,    "Hide Entities",
           :isolate_entities, "Isolate Entities",
-          :freeze_entities,  "Freeze Groups and Components",
+          :freeze_entities,  "Freeze Groups/Components",
           :unfreeze_all,     "Unfreeze All",
           :show_all,         "Show All",
           #
@@ -72,12 +92,13 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
           :unfreeze_all,     "Unfreeze all",
           :show_all,         "Show all layers and entities"
         ]
-      end
+      end #}
     #
     #}#
 
 
     class << self # <--<< THIS module's anonymous singleton proxy class
+
 
       #{ debug( arg )
       #  debug=( arg )
@@ -99,54 +120,109 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
       end
       #} debug()
 
+
+      #{ debug?
+      #
+      #  Returns boolean state of the debug flag.
+      #
+      def debug?()
+        return @@debug
+      end
+      #} debug?()
+
+
       #{ isolate_layers()
       #
       #  Isolate selected layers.
       #  Hide all layers that are not within the selection.
       #
       def isolate_layers
-        selection_layers = Sketchup.active_model.selection.collect { |s| s.layer }.to_a
-        puts "Isolating #{selection_layers.length} layers..." if @@debug
-        layers_to_hide = Sketchup.active_model.layers.to_a - selection_layers.to_a
-        if not Sketchup.active_model.selection.empty?
-          begin
-            Sketchup.active_model.start_operation "Isolate selected layers"
-              layers_to_hide.each { |l|
-                puts "Making layer '#{l}' hidden..." if @@debug
-                l.visible = false unless l == Sketchup.active_model.active_layer 
-              }
-            Sketchup.active_model.commit_operation
-          rescue Exception => e
-            puts "Error encountered: #{e}" # Show even if debuggnig is off.
+        unless Sketchup.active_model.selection.empty?
+          selection_layers = Sketchup.active_model.selection.collect {|s| s.layer }
+          layers_to_hide = Sketchup.active_model.layers.to_a - selection_layers
+          layers_to_hide = layers_to_hide - [Sketchup.active_model.active_layer]
+          unless layers_to_hide.empty?
+            puts("Isolating #{selection_layers.length} layers...") if @@debug
+            begin
+              #
+              if Sketchup.version.to_i > 6 # disable UI during operation
+                Sketchup.active_model.start_operation(@@menutext[:isolate_layers],!@@debug)
+              else
+                Sketchup.active_model.start_operation(@@menutext[:isolate_layers])
+              end
+                #
+                layers_to_hide.each {|l|
+                  puts("Making layer '#{l}' hidden...") if @@debug
+                  l.visible = false unless l == Sketchup.active_model.active_layer 
+                }
+                #
+              Sketchup.active_model.commit_operation
+              #
+            rescue Exception => e
+              #
+              unless $VERBOSE.nil? # not in silent mode
+                puts("\nVisTools 'isolate_layers' Error encountered: #{e.class.name}")
+                puts("\t#{e.message}") if @@debug
+                puts(e.backtrace) if @@debug && $VERBOSE
+                puts()
+              end
+              Sketchup.active_model.abort_operation
+              #
+            end
+          else
+            puts("No layers can be hidden.") if @@debug
           end
         else
-          puts "Nothing selected!!!" if @@debug
+          puts("Nothing selected!!!") if @@debug
         end
       end #} isolate_layers()
-    
+
+      
       #{ hide_layers()
       #
       #  Hide selected layers.
       #  Grabs all layers in selection and turns their visibility off.
       #
       def hide_layers
-        selection_layers = Sketchup.active_model.selection.collect { |s| s.layer }.to_a
-        if not Sketchup.active_model.selection.empty?
-          begin
-            Sketchup.active_model.start_operation "Hide selected layers"
-              selection_layers.each { |l|
-                puts "Making layer '#{l}' hidden..." if @@debug
-                l.visible = false unless l == Sketchup.active_model.active_layer
-              }
-            Sketchup.active_model.commit_operation
-          rescue Exception => e
-            puts "Error encountered: #{e}" # Show even if debuggnig is off.
-            Sketchup.active_model.abort_operation
+        unless Sketchup.active_model.selection.empty?
+          selection_layers = Sketchup.active_model.selection.collect {|s| s.layer }
+          layers_to_hide = selection_layers - [Sketchup.active_model.active_layer]
+          unless layers_to_hide.empty?
+            puts("Hiding #{layers_to_hide.length} layers...") if @@debug
+            begin
+              #
+              if Sketchup.version.to_i > 6 # disable UI during operation
+                Sketchup.active_model.start_operation(@@menutext[:hide_layers],!@@debug)
+              else
+                Sketchup.active_model.start_operation(@@menutext[:hide_layers])
+              end
+                #
+                layers_to_hide.each {|l|
+                  puts("Making layer '#{l}' hidden...") if @@debug
+                  l.visible = false unless l == Sketchup.active_model.active_layer
+                }
+                #
+              Sketchup.active_model.commit_operation
+              #
+            rescue Exception => e
+              #
+              unless $VERBOSE.nil? # not in silent mode
+                puts("\nVisTools 'hide_layers' Error encountered: #{e.class.name}")
+                puts("\t#{e.message}") if @@debug
+                puts(e.backtrace) if @@debug && $VERBOSE
+                puts()
+              end
+              Sketchup.active_model.abort_operation
+              #
+            end
+          else
+            puts("No layers can be hidden.") if @@debug
           end
         else
-          puts "Nothing selected!!!" if @@debug
+          puts("Nothing selected!!!") if @@debug
         end
       end #} hide_layers()
+
 
       #{ isolate_entities()
       #
@@ -154,24 +230,44 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
       #  Hides all entities other than the selected entity.
       #
       def isolate_entities
-        if !Sketchup.active_model.selection.empty?
-          begin
-            Sketchup.active_model.start_operation "Isolate selected entities"
-              entities_to_hide = Sketchup.active_model.entities.to_a - Sketchup.active_model.selection.to_a
-              puts "Isolating #{entities_to_hide.length} entities..." if @@debug
-              entities_to_hide.each { |e|
-                puts "Making '#{e}' entity hidden..." if @@debug
-                e.visible = false
-              }
-            Sketchup.active_model.commit_operation
-          rescue Exception => e
-            puts "Error encountered: #{e}" # Show even if debuggnig is off.
-            Sketchup.active_model.abort_operation
+        unless Sketchup.active_model.selection.empty?
+          ents_to_hide = Sketchup.active_model.entities.to_a - Sketchup.active_model.selection.to_a
+          unless ents_to_hide.empty?
+            puts("Isolating #{ents_to_hide.length} entities...") if @@debug
+            begin
+              #
+              if Sketchup.version.to_i > 6 # disable UI during operation
+                Sketchup.active_model.start_operation(@@menutext[:isolate_entities],!@@debug)
+              else
+                Sketchup.active_model.start_operation(@@menutext[:isolate_entities])
+              end
+                #
+                ents_to_hide.each {|e|
+                  puts( "Making '#{e}' entity hidden...") if @@debug
+                  e.visible = false
+                }
+                #
+              Sketchup.active_model.commit_operation
+              #
+            rescue Exception => e
+              #
+              unless $VERBOSE.nil? # not in silent mode
+                puts("\nVisTools 'isolate_entities' Error encountered: #{e.class.name}")
+                puts("\t#{e.message}") if @@debug
+                puts(e.backtrace) if @@debug && $VERBOSE
+                puts()
+              end
+              Sketchup.active_model.abort_operation
+              #
+            end
+          else
+            puts("No entities can be hidden.") if @@debug
           end
         else
-          puts "Nothing selected!!!" if @@debug
+          puts("Nothing selected!!!") if @@debug
         end
       end #} isolate_entities()
+
 
       #{ hide_entities()
       #
@@ -179,23 +275,45 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
       #  Hide all entities within the selection.
       #
       def hide_entities
-        if not Sketchup.active_model.selection.empty?
-          begin
-            Sketchup.active_model.start_operation "Hide selected entities"
-              Sketchup.active_model.selection.each { |e|
-                puts "Making '#{e}' entity hidden..." if @@debug
-                e.visible = false
-              }
-            Sketchup.active_model.commit_operation        
-          rescue Exception => e
-            puts "Error encountered: #{e}" # Show even if debuggnig is off.
-            Sketchup.active_model.abort_operation
+        unless Sketchup.active_model.selection.empty?
+          #
+          ents_to_hide = Sketchup.active_model.selection.find_all {|e| e.visible? }
+          unless ents_to_hide.empty?
+            begin
+              #
+              if Sketchup.version.to_i > 6 # disable UI during operation
+                Sketchup.active_model.start_operation(@@menutext[:hide_entities],!@@debug)
+              else
+                Sketchup.active_model.start_operation(@@menutext[:hide_entities])
+              end
+                #
+                ents_to_hide.each {|e|
+                  puts("Making '#{e}' entity hidden...") if @@debug
+                  e.visible = false
+                }
+                #
+              Sketchup.active_model.commit_operation
+              #
+            rescue Exception => e
+              #
+              unless $VERBOSE.nil? # not in silent mode
+                puts("\nVisTools 'hide_entities' Error encountered: #{e.class.name}")
+                puts("\t#{e.message}") if @@debug
+                puts(e.backtrace) if @@debug && $VERBOSE
+                puts()
+              end
+              Sketchup.active_model.abort_operation
+              #
+            end
+          else
+            puts("No entities can be hidden.") if @@debug
           end
         else
-          puts "Nothing selected!!!" if @@debug
+          puts("Nothing selected!!!") if @@debug
         end
       end #} hide_entities()
     
+
       #{ freeze_groups_and_components()
       #
       #  Freeze selected entities.
@@ -204,88 +322,159 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
       #  on groups and components.
       #
       def freeze_groups_and_components
-        if not Sketchup.active_model.selection.empty?
-          begin
-            Sketchup.active_model.start_operation "Freeze groups and components"
-              puts "Freezing selection..." if @@debug
-              Sketchup.active_model.selection.each { |e| 
-                if e.is_a? Sketchup::Group or e.is_a? Sketchup::ComponentInstance
-                  puts "Making '#{e}' entity hidden and locked..." if @@debug
-                  e.visible = false
-                  e.locked = true
-                end
-              }
-            Sketchup.active_model.commit_operation
-          rescue Exception => e
-            puts "Error encountered: #{e}" # Show even if debuggnig is off.
-            Sketchup.active_model.abort_operation
-          end
+        unless Sketchup.active_model.selection.empty?
+          if Sketchup.active_model.selection.find {|e| e.is_a?(Sketchup::Group) or e.is_a?(Sketchup::ComponentInstance)}
+            puts("Freezing selection...") if @@debug
+            begin
+              #
+              if Sketchup.version.to_i > 6 # disable UI during operation
+                Sketchup.active_model.start_operation(@@menutext[:freeze_entities],!@@debug)
+              else
+                Sketchup.active_model.start_operation(@@menutext[:freeze_entities])
+              end
+                #
+                Sketchup.active_model.selection.each {|e| 
+                  if e.is_a?(Sketchup::Group) or e.is_a?(Sketchup::ComponentInstance)
+                    puts("Making '#{e}' entity hidden and locked...") if @@debug
+                    e.visible = false
+                    e.locked = true
+                  end
+                }
+                #
+              Sketchup.active_model.commit_operation
+              #
+            rescue Exception => e
+              #
+              unless $VERBOSE.nil? # not in silent mode
+                puts("\nVisTools 'freeze_groups_and_components' Error encountered: #{e.class.name}")
+                puts("\t#{e.message}") if @@debug
+                puts(e.backtrace) if @@debug && $VERBOSE
+                puts()
+              end
+              Sketchup.active_model.abort_operation
+              #
+            end
+          else
+            puts("Selection has no groups nor components.") if @@debug
+          end # if the selection has a group or component
         else
-          puts "Nothing selected!!!" if @@debug
+          puts("Nothing selected!!!") if @@debug
         end
       end #} freeze_groups_and_components()
     
+
       #{ unfreeze_all()
       #
-      #  Freeze selected entities.
-      #  Hides and locks all groups and components within the selection. 
+      #  Unfreeze all groups and components.
+      #  Shows and unlocks all groups and components. 
       #  Since lock only works on groups or components, this tool will only work 
       #  on groups and components.
       #
       def unfreeze_all
-        begin
-          Sketchup.active_model.start_operation "Unfreeze everything"
-            puts "Unfreezing everything..." if @@debug
-            Sketchup.active_model.entities.each { |e| 
-              if e.is_a? Sketchup::Group or e.is_a? Sketchup::ComponentInstance
-                if e.locked? and not e.visible?
-                  puts "Making '#{e}' entity visible and unlocked..." if @@debug
-                  e.locked = false
-                  e.visible = true
+        if Sketchup.active_model.entities.find {|e| e.is_a?(Sketchup::Group) or e.is_a?(Sketchup::ComponentInstance)}
+          puts("Unfreezing everything...") if @@debug
+          begin
+            #
+            if Sketchup.version.to_i > 6 # disable UI during operation
+              Sketchup.active_model.start_operation(@@menutext[:unfreeze_all],!@@debug)
+            else
+              Sketchup.active_model.start_operation(@@menutext[:unfreeze_all])
+            end
+              #
+              Sketchup.active_model.entities.each {|e| 
+                if e.is_a?(Sketchup::Group) or e.is_a?(Sketchup::ComponentInstance)
+                  if e.locked? and not e.visible?
+                    puts("Making '#{e}' entity visible and unlocked...") if @@debug
+                    e.locked = false
+                    e.visible = true
+                  end
                 end
-              end
-            }
-          Sketchup.active_model.commit_operation
-        rescue Exception => e
-          puts "Error encountered: #{e}" # Show even if debuggnig is off.
-          Sketchup.active_model.abort_operation
-        end
+              }
+              #
+            Sketchup.active_model.commit_operation
+            #
+          rescue Exception => e
+            #
+            unless $VERBOSE.nil? # not in silent mode
+              puts("\nVisTools 'unfreeze_all' Error encountered: #{e.class.name}")
+              puts("\t#{e.message}") if @@debug
+              puts(e.backtrace) if @@debug && $VERBOSE
+              puts()
+            end
+            Sketchup.active_model.abort_operation
+            #
+          end
+        else
+          puts("Model has no groups nor components.") if @@debug
+        end # if model's entities have a group or component
       end #} unfreeze_all()
+
 
       #{ show_all()
       #
       #  Show all
-      #  Unhides all hidden layers and entities. If a layer is locked and hidden, 
-      #  assume it is frozen, so do not unhide it.
+      #  Unhides all hidden layers and entities.
+      #  If a group or component is both locked and hidden, 
+      #   assume it is frozen, so do not thaw it.
       #
       def show_all
         begin
-          Sketchup.active_model.start_operation "Show all layers and entities"
-            puts "Showing all layers and entities..." if @@debug
-            Sketchup.active_model.layers.each { |l|
-              puts "\tMaking layer '#{l}' visible..." if @@debug
-              l.visible = true
-            }
-            Sketchup.active_model.entities.each { |e|
-              # If the entity is a Group or Component, test if it is frozen.
-              if e.is_a?(Sketchup::Group) or e.is_a?(Sketchup::ComponentInstance)
-                if not e.visible? and e.locked?
-                  puts "\t'#{e}' is hidden and locked, do no show it..." if @@debug
-                else
-                  puts "\tMaking '#{e}' entity visible..." if @@debug
-                  e.visible = true
-                end
-              else
-                puts "\tMaking '#{e}' entity visible..." if @@debug
-                e.visible = true
-              end
-            }
+          #
+          if Sketchup.version.to_i > 6 # disable UI during operation
+            Sketchup.active_model.start_operation(@@menutext[:show_all],!@@debug)
+          else
+            Sketchup.active_model.start_operation(@@menutext[:show_all])
+          end
+            #
+            layers_to_show = Sketchup.active_model.layers.find_all {|l| l.visible? == false }
+            unless layers_to_show.empty?
+              puts("Showing all layers... Making #{layers_to_show.length} visible...") if @@debug
+              layers_to_show.each {|l|
+                puts("\tMaking '#{l.name}' layer '#{l}' visible...") if @@debug
+                l.visible = true
+              }
+            else
+              puts("No hidden layers to make visible...") if @@debug
+            end
+            #
+            ents_to_show = Sketchup.active_model.entities.find_all {|e| e.visible? == false }
+            unless ents_to_show.empty?
+              puts("Showing all entities...") if @@debug
+              ents_to_show.each {|e|
+                unless e.visible?
+                  # If the entity is a Group or Component, test if it is frozen.
+                  if e.is_a?(Sketchup::Group) or e.is_a?(Sketchup::ComponentInstance)
+                    if not e.visible? and e.locked?
+                      puts("\t'#{e}' is hidden and locked, do not show it...") if @@debug
+                    else
+                      puts("\tMaking '#{e}' entity visible...") if @@debug
+                      e.visible = true
+                    end
+                  else
+                    puts("\tMaking '#{e}' entity visible...") if @@debug
+                    e.visible = true
+                  end
+                end # if the entity is hidden
+              }
+            else
+              puts("No entities to make visible...") if @@debug
+            end
+            #
           Sketchup.active_model.commit_operation
+          #
         rescue Exception => e
-          puts "Error encountered: #{e}" # Show even if debuggnig is off.
+          #
+          unless $VERBOSE.nil? # not in silent mode
+            puts("\nVisTools 'show_all' Error encountered: #{e.class.name}")
+            puts("\t#{e.message}") if @@debug
+            puts(e.backtrace) if @@debug && $VERBOSE
+            puts()
+          end
           Sketchup.active_model.abort_operation
+          #
         end
       end #} show_all()
+
 
     end # proxy class
 
@@ -312,6 +501,7 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
       cmd.large_icon = File.join(BASEPATH, "images/hide_layers_large.png")
       cmd.menu_text = @@menutext[:hide_layers]
       cmd.status_bar_text = cmd.tooltip = @@tooltips[:hide_layers]
+      cmd.set_validation_proc(&@@select_proc)
       #}
 
       #{ Create the isolate_layers command.
@@ -323,6 +513,7 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
       cmd.large_icon = File.join(BASEPATH, "images/isolate_layers_large.png")
       cmd.menu_text = @@menutext[:isolate_layers]
       cmd.status_bar_text = cmd.tooltip = @@tooltips[:isolate_layers]
+      cmd.set_validation_proc(&@@select_proc)
       #}
 
       #{ Create the hide_entities command.
@@ -334,6 +525,7 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
       cmd.large_icon = File.join(BASEPATH, "images/hide_entities_large.png")
       cmd.menu_text = @@menutext[:hide_entities]
       cmd.status_bar_text = cmd.tooltip = @@tooltips[:hide_entities]
+      cmd.set_validation_proc(&@@select_proc)
       #}
 
       #{ Create the isolate_entities command.
@@ -345,6 +537,7 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
       cmd.large_icon = File.join(BASEPATH, "images/isolate_entities_large.png")
       cmd.menu_text = @@menutext[:isolate_entities]
       cmd.status_bar_text = cmd.tooltip = @@tooltips[:isolate_entities]
+      cmd.set_validation_proc(&@@select_proc)
       #}
 
       #{ Create the freeze_entities command.
@@ -356,6 +549,7 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
       cmd.large_icon = File.join(BASEPATH, "images/freeze_groups_and_components_large.png")
       cmd.menu_text = @@menutext[:freeze_entities]
       cmd.status_bar_text = cmd.tooltip = @@tooltips[:freeze_entities]
+      cmd.set_validation_proc(&@@select_proc)
       #}
 
       #{ Create the unfreeze_all command.

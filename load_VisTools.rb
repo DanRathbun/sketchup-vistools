@@ -21,10 +21,10 @@
 # Website     : https://github.com/danawoodman/sketchup-vistools
 # Blog        : n/a
 #
-# Maintenance : Please logs reports for bugs or strange behavior at:
+# Maintenance : Please log reports for bugs or strange behavior at:
 #             : https://github.com/danawoodman/sketchup-vistools
 #
-# Version     : 1.2.0
+# Version     : 1.2.1
 #
 # Menu Items  : Plugins -> VisTools -> 
 #             :                       Isolate Selected Layers
@@ -65,13 +65,16 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
 
     # Register plugin as an extension.
     @@plugin = SketchupExtension.new('VisTools', File.join(File.dirname(__FILE__), 'IntrepidBear/VisTools/VisTools.rb'))
-    @@plugin.version = '1.2.0'
+    @@plugin.version = '1.2.1'
     @@plugin.creator = 'Dana Woodman'
     @@plugin.copyright = '2012, under MIT License'
 
     @@lang = Sketchup.get_locale()[0,2]
+
     if @@lang=='en' # English
       @@plugin.description = 'VisTools: Adds some useful visibility tools within SketchUp like Hide/Show entities and layers, Freeze/Unfreeze and Show/Unfreeze all.'
+    elsif @@lang=='cs' # Czech
+      @@plugin.description = 'VisTools:(Vize-Nástroje) Přidá některé užitečné viditelnost nástroje v rámci SketchUp, jako Skrýt / Oddělit entity a vrstvy, Zmrazit / Uvolnit komponenty a Všechny / Uvolnit vše.'
     elsif @@lang=='de' # German
       @@plugin.description = 'VisTools:(Sicht-Werkzeuge) Fügt einige nützliche Sichtbarkeit Werkzeuge innerhalb von SketchUp wie ein-und Ausblenden Entitäten und Schichten, Einfrieren/Auftauen und Blende/Ausblenden aller.'
     elsif @@lang=='es' # Spanish
@@ -80,6 +83,8 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
       @@plugin.description = 'VisTools:(Outils de Visibilité) Ajoute des outils de visibilité utile SketchUp, comme Cacher / Montrer les entités et des calques, Geler / Dégeler pour des composants, et Montrer / Dégeler tous.'
     elsif @@lang=='it' # Italian
       @@plugin.description = %q(VisTools:(Strumenti di Visibilità) Aggiunge alcuni strumenti utili visibilità all'interno di SketchUp come Nascondere / Mostrare entità e strati, Congelare / Scongelare e Visualizza / Sblocca tutte le.)
+    elsif @@lang=='nl' # Dutch
+      @@plugin.description = 'VisTools:(Visie-Werktuigen) Voegt enkele nuttige zichtbaarheid werktuigen binnen SketchUp, zoals Verbergen / Tonen entiteiten en lagen, Bevriezen / Ontdooien componenten, en Toon alle / alle Ontdooien.'
     elsif @@lang=='pl' # Polish
       @@plugin.description = 'VisTools:(Wizja-Narzędzia) Dodaje kilka narzędzi przydatnych widoczność w SketchUp jak Ukryj / Pokaż obiektów i warstw, Zablokuj / Odblokuj i Pokaż / Odblokuj wszystkie.'
     elsif @@lang=='pt' # Portuguese
