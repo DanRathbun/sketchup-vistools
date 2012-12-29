@@ -18,13 +18,14 @@
 # License     : MIT (See LICENSE file)
 # Author      : Dana Woodman
 # Email       : <dana@danawoodman.com>
-# Website     : https://github.com/danawoodman/sketchup-vistools
+#
+# Website     : https://github.com/DanRathbun/sketchup-vistools
 # Blog        : n/a
 #
 # Maintenance : Please log reports for bugs or strange behavior at:
-#             : https://github.com/danawoodman/sketchup-vistools
+#             : https://github.com/DanRathbun/sketchup-vistools/issues
 #
-# Version     : 1.2.1
+# Version     : 1.3.0
 #
 # Menu Items  : Plugins -> VisTools -> 
 #             :                       Isolate Selected Layers
@@ -65,7 +66,7 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
 
     # Register plugin as an extension.
     @@plugin = SketchupExtension.new('VisTools', File.join(File.dirname(__FILE__), 'IntrepidBear/VisTools/VisTools.rb'))
-    @@plugin.version = '1.2.1'
+    @@plugin.version = '1.3.0'
     @@plugin.creator = 'Dana Woodman'
     @@plugin.copyright = '2012, under MIT License'
 

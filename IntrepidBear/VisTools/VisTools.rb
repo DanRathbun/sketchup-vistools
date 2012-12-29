@@ -33,6 +33,12 @@
 #         ~ Fixed: Undo operation names were not localized.
 #         ~ Fixed: unfreeze_all() and show_all() method descriptions.
 #
+#   1.3.0 : 2012-12-28 : Daniel A. Rathbun, Palm Bay, FL, USA
+#         ~ Only trap StandardError subclasses in rescue clauses.
+#         ~ Re-raise the exceptions (for a debugger or development tool.)
+#         ~ Do not isolate wrapping ancestors, if within an editing context.
+#         ~ Do not isolate ancestor's layers, if within an editing context.
+#
 #-----------------------------------------------------------------------------
 
 module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
@@ -41,7 +47,7 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
 
     # MODULE CONSTANTS
     BASEPATH = File.dirname(__FILE__) unless defined?(BASEPATH)
-    VERSION  = @@plugin.version unless defined?(VERSION)
+    VERSION  = '1.3.0' unless defined?(VERSION)
 
     #{# MODULE VARIABLES
     #
@@ -55,21 +61,24 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
         Sketchup.active_model.selection.empty? ? MF_GRAYED : MF_ENABLED
       }
 
-      #{ Load localized string hashes from file:
+      #{ String hashes:
       @@lang = Sketchup.get_locale()[0,2] unless defined?(@@lang)
-      begin
-        if @@lang == 'en'
-          raise(LoadError,"English")
-        else
+      unless @@lang == 'en'
+        # Load localized string hashes from file:
+        begin
           load(File.join(BASEPATH,"VisTools_"<<@@lang<<".rb"))
+        rescue LoadError => e
+          unless $VERBOSE.nil?
+            puts()
+            puts('NOTICE: Could not find a "VisTools_'<<@@lang<<'.rb" file to load.')
+            puts('Using English text for VisTools plugin UI.')
+            puts()
+          end
+          @@lang == 'en' # just use English
         end
-      rescue LoadError => e
-        if e.message != 'English' && !$VERBOSE.nil?
-          puts()
-          puts('NOTICE: Could not find a "VisTools_'<<@@lang<<'.rb" file to load.')
-          puts('Using English text for VisTools plugin UI.')
-          puts()
-        end
+      end # load attempt
+      #
+      if @@lang == 'en'
         @@menutext = Hash[
           :plugin_name,      "VisTools",
           #
@@ -138,9 +147,13 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
       #
       def isolate_layers
         unless Sketchup.active_model.selection.empty?
-          selection_layers = Sketchup.active_model.selection.collect {|s| s.layer }
+          selection_layers = Sketchup.active_model.selection.map {|s| s.layer }
           layers_to_hide = Sketchup.active_model.layers.to_a - selection_layers
-          layers_to_hide = layers_to_hide - [Sketchup.active_model.active_layer]
+          layers_to_hide.delete(Sketchup.active_model.active_layer)
+          # IF in an editing context, remove layers
+          # of wrapping entities from consideration:
+          layers_to_hide -= Sketchup.active_model.active_path.map {|c| c.layer }
+          #
           unless layers_to_hide.empty?
             puts("Isolating #{selection_layers.length} layers...") if @@debug
             begin
@@ -204,15 +217,16 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
                 #
               Sketchup.active_model.commit_operation
               #
-            rescue Exception => e
+            rescue => e
               #
               unless $VERBOSE.nil? # not in silent mode
-                puts("\nVisTools 'hide_layers' Error encountered: #{e.class.name}")
-                puts("\t#{e.message}") if @@debug
+                puts("\nVisTools: Error encountered in 'hide_layers' : Aborting Model Operation.")
+                puts("Error: #<#{e.class.name}: #{e.message}>") if @@debug
                 puts(e.backtrace) if @@debug && $VERBOSE
                 puts()
               end
               Sketchup.active_model.abort_operation
+              raise
               #
             end
           else
@@ -231,7 +245,12 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
       #
       def isolate_entities
         unless Sketchup.active_model.selection.empty?
-          ents_to_hide = Sketchup.active_model.entities.to_a - Sketchup.active_model.selection.to_a
+          sel = Sketchup.active_model.selection.to_a
+          ents_to_hide = Sketchup.active_model.entities.to_a - sel
+          # IF in an editing context, remove all
+          # wrapping entities from consideration:
+          ents_to_hide -= Sketchup.active_model.active_path
+          #
           unless ents_to_hide.empty?
             puts("Isolating #{ents_to_hide.length} entities...") if @@debug
             begin
@@ -249,15 +268,16 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
                 #
               Sketchup.active_model.commit_operation
               #
-            rescue Exception => e
+            rescue => e
               #
               unless $VERBOSE.nil? # not in silent mode
-                puts("\nVisTools 'isolate_entities' Error encountered: #{e.class.name}")
-                puts("\t#{e.message}") if @@debug
+                puts("\nVisTools: Error encountered in 'isolate_entities' : Aborting Model Operation.")
+                puts("Error: #<#{e.class.name}: #{e.message}>") if @@debug
                 puts(e.backtrace) if @@debug && $VERBOSE
                 puts()
               end
               Sketchup.active_model.abort_operation
+              raise
               #
             end
           else
@@ -294,15 +314,16 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
                 #
               Sketchup.active_model.commit_operation
               #
-            rescue Exception => e
+            rescue => e
               #
               unless $VERBOSE.nil? # not in silent mode
-                puts("\nVisTools 'hide_entities' Error encountered: #{e.class.name}")
-                puts("\t#{e.message}") if @@debug
+                puts("\nVisTools: Error encountered in 'hide_entities' : Aborting Model Operation.")
+                puts("Error: #<#{e.class.name}: #{e.message}>") if @@debug
                 puts(e.backtrace) if @@debug && $VERBOSE
                 puts()
               end
               Sketchup.active_model.abort_operation
+              raise
               #
             end
           else
@@ -343,15 +364,16 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
                 #
               Sketchup.active_model.commit_operation
               #
-            rescue Exception => e
+            rescue => e
               #
               unless $VERBOSE.nil? # not in silent mode
-                puts("\nVisTools 'freeze_groups_and_components' Error encountered: #{e.class.name}")
-                puts("\t#{e.message}") if @@debug
+                puts("\nVisTools: Error encountered in 'freeze_groups_and_components' : Aborting Model Operation.")
+                puts("Error: #<#{e.class.name}: #{e.message}>") if @@debug
                 puts(e.backtrace) if @@debug && $VERBOSE
                 puts()
               end
               Sketchup.active_model.abort_operation
+              raise
               #
             end
           else
@@ -393,15 +415,16 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
               #
             Sketchup.active_model.commit_operation
             #
-          rescue Exception => e
+          rescue => e
             #
             unless $VERBOSE.nil? # not in silent mode
-              puts("\nVisTools 'unfreeze_all' Error encountered: #{e.class.name}")
-              puts("\t#{e.message}") if @@debug
+              puts("\nVisTools: Error encountered in 'unfreeze_all' : Aborting Model Operation.")
+              puts("Error: #<#{e.class.name}: #{e.message}>") if @@debug
               puts(e.backtrace) if @@debug && $VERBOSE
               puts()
             end
             Sketchup.active_model.abort_operation
+            raise
             #
           end
         else
@@ -462,15 +485,16 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
             #
           Sketchup.active_model.commit_operation
           #
-        rescue Exception => e
+        rescue => e
           #
           unless $VERBOSE.nil? # not in silent mode
-            puts("\nVisTools 'show_all' Error encountered: #{e.class.name}")
-            puts("\t#{e.message}") if @@debug
+            puts("\nVisTools: Error encountered in 'show_all' : Aborting Model Operation.")
+            puts("Error: #<#{e.class.name}: #{e.message}>") if @@debug
             puts(e.backtrace) if @@debug && $VERBOSE
             puts()
           end
           Sketchup.active_model.abort_operation
+          raise
           #
         end
       end #} show_all()
