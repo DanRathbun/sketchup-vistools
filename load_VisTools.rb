@@ -1,31 +1,42 @@
 #-----------------------------------------------------------------------------
 #
-# Copyright 2012 Dana Woodman <dana@danawoodman.com>. All Rights Reserved.
+# Copyright (c) 2012 Dana Woodman, versions up to 1.1.0
+# Copyright (c) 2013 Daniel A. Rathbun, versions 1.2.0+
 #
-# Permission to use, copy, modify, and distribute this software for
-# any purpose and without fee is hereby granted, provided the above
-# copyright notice appear in all copies.
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#   (1) The above copyright notice and this permission notice shall be
+#       included in all copies or substantial portions of the Software.
 #
-# THIS SOFTWARE IS PROVIDED "AS IS" AND WITHOUT ANY EXPRESS OR
-# IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
-# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
 #
 #-----------------------------------------------------------------------------
 #
 # Name        : VisTools
 # Based On    : n/a
-# Type        : Tool
+# Type        : Utility
+#
 # License     : MIT (See LICENSE file)
 # Author      : Dana Woodman
 # Email       : <dana@danawoodman.com>
 #
+# Updates     : Daniel A. Rathbun, Palm Bay, FL, USA
 # Website     : https://github.com/DanRathbun/sketchup-vistools
-# Blog        : n/a
 #
 # Maintenance : Please log reports for bugs or strange behavior at:
 #             : https://github.com/DanRathbun/sketchup-vistools/issues
 #
-# Version     : 1.3.0
+# Version     : 1.3.1
 #
 # Menu Items  : Plugins -> VisTools -> 
 #             :                       Isolate Selected Layers
@@ -35,6 +46,8 @@
 #             :                       Freeze Selected Groups and Components
 #             :                       Unfreeze All
 #             :                       Show All Layers and Entities
+#             :                       ----------------------------------
+#             :                       Debug
 #             :
 # Toolbar     : VisTools - Includes one large and one small icon.
 #             :
@@ -66,8 +79,8 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
 
     # Register plugin as an extension.
     @@plugin = SketchupExtension.new('VisTools', File.join(File.dirname(__FILE__), 'IntrepidBear/VisTools/VisTools.rb'))
-    @@plugin.version = '1.3.0'
-    @@plugin.creator = 'Dana Woodman'
+    @@plugin.version = '1.3.1'
+    @@plugin.creator = 'Dana Woodman (v1.2+ by Daniel A. Rathbun)'
     @@plugin.copyright = '2012, under MIT License'
 
     @@lang = Sketchup.get_locale()[0,2]

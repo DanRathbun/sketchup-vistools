@@ -1,14 +1,24 @@
 #-----------------------------------------------------------------------------
 #
-# Copyright 2012 Dana Woodman <dana@danawoodman.com>. All Rights Reserved.
+# Copyright (c) 2012 Dana Woodman, versions up to 1.1.0
+# Copyright (c) 2013 Daniel A. Rathbun, versions 1.2.0+
 #
-# Permission to use, copy, modify, and distribute this software for
-# any purpose and without fee is hereby granted, provided the above
-# copyright notice appear in all copies.
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#   (1) The above copyright notice and this permission notice shall be
+#       included in all copies or substantial portions of the Software.
 #
-# THIS SOFTWARE IS PROVIDED "AS IS" AND WITHOUT ANY EXPRESS OR
-# IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
-# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
 #
 #-----------------------------------------------------------------------------
 # 
@@ -39,6 +49,12 @@
 #         ~ Do not isolate wrapping ancestors, if within an editing context.
 #         ~ Do not isolate ancestor's layers, if within an editing context.
 #
+#   1.3.1 : 2012-12-30 : Daniel A. Rathbun, Palm Bay, FL, USA
+#         ~ Updated the isolate_layers() rescue clause like the others.
+#           (This change was missed in the last revision.)
+#         ~ Define an array to set the ordinal position of commands, and
+#             use it to populate the menus and toolbar.
+#
 #-----------------------------------------------------------------------------
 
 module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
@@ -47,7 +63,7 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
 
     # MODULE CONSTANTS
     BASEPATH = File.dirname(__FILE__) unless defined?(BASEPATH)
-    VERSION  = '1.3.0' unless defined?(VERSION)
+    VERSION  = '1.3.1' unless defined?(VERSION)
 
     #{# MODULE VARIABLES
     #
@@ -56,6 +72,8 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
       @@toolbar = nil unless defined?(@@toolbar)
       @@submenu = nil unless defined?(@@submenu)
       @@command = {}  unless defined?(@@command)
+      @@cmd_ord = [:isolate_layers,:hide_layers,:isolate_entities,:hide_entities,:freeze_entities,:unfreeze_all,:show_all] unless defined?(@@cmd_ord)
+
       
       @@select_proc = Proc.new {
         Sketchup.active_model.selection.empty? ? MF_GRAYED : MF_ENABLED
@@ -171,15 +189,16 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
                 #
               Sketchup.active_model.commit_operation
               #
-            rescue Exception => e
+            rescue => e
               #
               unless $VERBOSE.nil? # not in silent mode
-                puts("\nVisTools 'isolate_layers' Error encountered: #{e.class.name}")
-                puts("\t#{e.message}") if @@debug
+                puts("\nVisTools: Error encountered in 'isolate_layers' : Aborting Model Operation.")
+                puts("Error: #<#{e.class.name}: #{e.message}>") if @@debug
                 puts(e.backtrace) if @@debug && $VERBOSE
                 puts()
               end
               Sketchup.active_model.abort_operation
+              raise
               #
             end
           else
@@ -602,10 +621,11 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
       # Create and add the VisTools submenu.
       #{----------------------------------------------------------------------------
       @@submenu = UI.menu("Plugins").add_submenu( @@menutext[:plugin_name] )
-      @@command.each{|key,cmd|
-        @@submenu.add_item cmd
-      }
+      for key in @@cmd_ord
+        @@submenu.add_item @@command[key]
+      end
       @@submenu.add_separator
+      # add the debug toggle:
       cmd = @@submenu.add_item(@@menutext[:debug_mode]){ debug(!@@debug) }
       @@submenu.set_validation_proc(cmd) { @@debug_state }
       #}
@@ -616,18 +636,18 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
       UI.add_context_menu_handler do |context_menu|
         context_menu.add_separator
         popout = context_menu.add_submenu( @@menutext[:plugin_name] )
-        @@command.each{|key,cmd|
-          popout.add_item cmd
-        }
+        for key in @@cmd_ord
+          popout.add_item @@command[key]
+        end
       end #}
 
       # ----------------------------------------------------------------------------
       # Create and add the VisTools toolbar.
       #{----------------------------------------------------------------------------
       @@toolbar = UI::Toolbar.new(@@menutext[:plugin_name])
-      @@command.each{|key,cmd|
-        @@toolbar.add_item cmd
-      }
+      for key in @@cmd_ord
+        @@toolbar.add_item @@command[key]
+      end
       # show it:
       if @@toolbar.get_last_state != TB_HIDDEN
         UI.start_timer(1.0, false) {
