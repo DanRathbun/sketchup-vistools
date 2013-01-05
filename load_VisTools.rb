@@ -36,7 +36,7 @@
 # Maintenance : Please log reports for bugs or strange behavior at:
 #             : https://github.com/DanRathbun/sketchup-vistools/issues
 #
-# Version     : 1.3.1
+# Version     : 1.3.2
 #
 # Menu Items  : Plugins -> VisTools -> 
 #             :                       Isolate Selected Layers
@@ -79,7 +79,7 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
 
     # Register plugin as an extension.
     @@plugin = SketchupExtension.new('VisTools', File.join(File.dirname(__FILE__), 'IntrepidBear/VisTools/VisTools.rb'))
-    @@plugin.version = '1.3.1'
+    @@plugin.version = '1.3.2'
     @@plugin.creator = 'Dana Woodman (v1.2+ by Daniel A. Rathbun)'
     @@plugin.copyright = '2012, under MIT License'
 

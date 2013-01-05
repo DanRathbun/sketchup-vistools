@@ -55,6 +55,9 @@
 #         ~ Define an array to set the ordinal position of commands, and
 #             use it to populate the menus and toolbar.
 #
+#   1.3.2 : 2013-01-05 : Daniel A. Rathbun, Palm Bay, FL, USA
+#         ~ Correct @@lang assignment in language file rescue block.
+#
 #-----------------------------------------------------------------------------
 
 module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
@@ -63,7 +66,7 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
 
     # MODULE CONSTANTS
     BASEPATH = File.dirname(__FILE__) unless defined?(BASEPATH)
-    VERSION  = '1.3.1' unless defined?(VERSION)
+    VERSION  = '1.3.2' unless defined?(VERSION)
 
     #{# MODULE VARIABLES
     #
@@ -92,7 +95,9 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
             puts('Using English text for VisTools plugin UI.')
             puts()
           end
-          @@lang == 'en' # just use English
+          @@lang = 'en' # just use English
+        rescue => e
+          @@lang = 'en' # just use English
         end
       end # load attempt
       #
