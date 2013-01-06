@@ -58,6 +58,11 @@
 #   1.3.2 : 2013-01-05 : Daniel A. Rathbun, Palm Bay, FL, USA
 #         ~ Correct @@lang assignment in language file rescue block.
 #
+#   1.3.3 : 2013-01-05 : Daniel A. Rathbun, Palm Bay, FL, USA
+#         + Chinese Simplified language support by Xiao Long (guanjin)
+#         + Other Asian language support files (preliminary):
+#             + Korean, Japanese and Chinese Traditional
+#
 #-----------------------------------------------------------------------------
 
 module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
@@ -66,7 +71,7 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
 
     # MODULE CONSTANTS
     BASEPATH = File.dirname(__FILE__) unless defined?(BASEPATH)
-    VERSION  = '1.3.2' unless defined?(VERSION)
+    VERSION  = '1.3.3' unless defined?(VERSION)
 
     #{# MODULE VARIABLES
     #
@@ -87,17 +92,31 @@ module IntrepidBear  # <--<< Dana Woodman's proprietary toplevel namespace
       unless @@lang == 'en'
         # Load localized string hashes from file:
         begin
-          load(File.join(BASEPATH,"VisTools_"<<@@lang<<".rb"))
+          if @@lang == 'zh' # Chinese
+            zh = Sketchup.get_locale().split('-').last.downcase
+            f = File.join(BASEPATH,"VisTools_"<<@@lang<<"_#{zh}.rb")
+            if zh=='tw' && Kernel.test(?f,f)
+              load(f) # load Traditional Chinese
+            else # try Simplified Chinese
+              f = File.join(BASEPATH,"VisTools_"<<@@lang<<"_cn.rb")
+              load(f)
+            end
+          else
+            f = File.join(BASEPATH,"VisTools_"<<@@lang<<".rb")
+            load(f)
+          end
         rescue LoadError => e
           unless $VERBOSE.nil?
             puts()
-            puts('NOTICE: Could not find a "VisTools_'<<@@lang<<'.rb" file to load.')
+            puts('NOTICE: Could not find a "'<<File.basename(f)<<'" file to load.')
             puts('Using English text for VisTools plugin UI.')
             puts()
           end
           @@lang = 'en' # just use English
         rescue => e
           @@lang = 'en' # just use English
+        ensure
+          zh = f = nil # cleanup
         end
       end # load attempt
       #
